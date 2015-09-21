@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/oschwald/geoip2-golang"
 	"log"
@@ -34,5 +35,6 @@ func main() {
 		log.Fatal(err)
 	}
 	// Print out the ISO code of the country.
-	fmt.Printf("%s\n", record.Country.IsoCode)
+	output, _ := json.Marshal(map[string]interface{}{"ip": ip, "country": record.Country.IsoCode})
+	fmt.Printf("%s\n", output)
 }
