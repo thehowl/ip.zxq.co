@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 )
 
 var db *geoip2.Reader
@@ -48,7 +49,7 @@ func IPToResponse(i string, specific string) (string, string) {
 	}
 }
 func HTTPRequestHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("[rq]", r.Method, r.URL.Path)
+	start := time.Now()
 	requestedThings := strings.Split(r.URL.Path, "/")
 	var IPAddress string
 	var Which string
@@ -70,4 +71,5 @@ func HTTPRequestHandler(w http.ResponseWriter, r *http.Request) {
 	o, contentType := IPToResponse(IPAddress, Which)
 	w.Header().Set("Content-Type", contentType+"; charset=utf-8")
 	fmt.Fprint(w, o)
+	log.Println("[rq]", r.Method, r.URL.Path, time.Since(start))
 }
