@@ -6,29 +6,28 @@ import (
 	"github.com/oschwald/geoip2-golang"
 	"log"
 	"net"
+	"net/http"
+	"strings"
 )
+
+var db *geoip2.Reader
 
 func main() {
 	// Initialize the database.
-	db, err := geoip2.Open("GeoLite2-City.mmdb")
+	var err error
+	db, err = geoip2.Open("GeoLite2-City.mmdb")
 	if err != nil {
 		log.Fatal(err)
 	}
-	// Whatever we do, we should always close the database.
-	defer db.Close()
-	var i string
-	// Tell the user to type in an IP.
-	fmt.Print("Type in an IP... ")
-	// Get the IP from stdin
-	_, err = fmt.Scanf("%s", &i)
-	if err != nil {
-		log.Fatal(err)
-	}
+	http.HandleFunc("/", HTTPRequestHandler)
+	fmt.Println("Server listening!")
+    http.ListenAndServe(":8080", nil)
+}
+func IPToResponse(i string) string {
 	// Parse the ip.
 	ip := net.ParseIP(i)
 	if ip == nil {
-		fmt.Println("That's not an IP, you dumb fuck!")
-		return
+		return "Please provide a valid IP address"
 	}
 	record, err := db.City(ip)
 	if err != nil {
@@ -40,5 +39,9 @@ func main() {
 	}
 	// Print out the ISO code of the country.
 	output, _ := json.Marshal(map[string]interface{}{"ip": ip, "country": record.Country.IsoCode, "country_full": record.Country.Names["en"], "city": record.City.Names["en"], "region": sd, "continent": record.Continent.Code, "continent_full": record.Continent.Names["en"], "postal": record.Postal.Code, "loc": fmt.Sprintf("%.4f,%.4f", record.Location.Latitude, record.Location.Longitude)})
-	fmt.Printf("%s\n", output)
+	return string(output[:])
+}
+func HTTPRequestHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("[rq]", r.Method, r.URL.Path)
+	fmt.Fprint(w, IPToResponse(strings.Split(r.URL.Path, "/")[1]))
 }
