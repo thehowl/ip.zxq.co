@@ -21,7 +21,7 @@ func main() {
 	}
 	http.HandleFunc("/", HTTPRequestHandler)
 	fmt.Println("Server listening!")
-    http.ListenAndServe(":8080", nil)
+	http.ListenAndServe(":8080", nil)
 }
 func IPToResponse(i string) (string, string) {
 	// Parse the ip.
@@ -44,6 +44,6 @@ func IPToResponse(i string) (string, string) {
 func HTTPRequestHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("[rq]", r.Method, r.URL.Path)
 	o, contentType := IPToResponse(strings.Split(r.URL.Path, "/")[1])
-	w.Header().Set("Content-Type", contentType + "; charset=utf-8")
+	w.Header().Set("Content-Type", contentType+"; charset=utf-8")
 	fmt.Fprint(w, o)
 }
