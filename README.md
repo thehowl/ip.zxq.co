@@ -31,3 +31,7 @@ Long version:
 * We are using Go and not nodejs like them. Go is a compiled language, and therefore is amazingly fast. A response can be generated in a very short time.
 * We get data only from one data source. Which means no lookups on other databases, which results in being faster overall.
 * We are open source. Which means you can compile and put it on your own server!
+
+## License
+
+MIT. Check LICENSE file.
