@@ -71,5 +71,5 @@ func HTTPRequestHandler(w http.ResponseWriter, r *http.Request) {
 	o, contentType := IPToResponse(IPAddress, Which)
 	w.Header().Set("Content-Type", contentType+"; charset=utf-8")
 	fmt.Fprint(w, o)
-	log.Println("[rq]", r.Method, r.URL.Path, time.Since(start))
+	log.Printf("[rq] %s %s %dns", r.Method, r.URL.Path, time.Since(start).Nanoseconds())
 }
