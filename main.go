@@ -34,7 +34,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	var sd string
+	if record.Subdivisions != nil {
+		sd = record.Subdivisions[0].Names["en"]
+	}
 	// Print out the ISO code of the country.
-	output, _ := json.Marshal(map[string]interface{}{"ip": ip, "country": record.Country.IsoCode})
+	output, _ := json.Marshal(map[string]interface{}{"ip": ip, "country": record.Country.IsoCode, "country_full": record.Country.Names["en"], "city": record.City.Names["en"], "region": sd, "continent": record.Continent.Code, "continent_full": record.Continent.Names["en"], "postal": record.Postal.Code, "loc": fmt.Sprintf("%.4f,%.4f", record.Location.Latitude, record.Location.Longitude)})
 	fmt.Printf("%s\n", output)
 }
