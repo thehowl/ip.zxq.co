@@ -23,11 +23,11 @@ func main() {
 	fmt.Println("Server listening!")
     http.ListenAndServe(":8080", nil)
 }
-func IPToResponse(i string) string {
+func IPToResponse(i string) (string, string) {
 	// Parse the ip.
 	ip := net.ParseIP(i)
 	if ip == nil {
-		return "Please provide a valid IP address"
+		return "Please provide a valid IP address", "text/html"
 	}
 	record, err := db.City(ip)
 	if err != nil {
@@ -39,9 +39,11 @@ func IPToResponse(i string) string {
 	}
 	// Print out the ISO code of the country.
 	output, _ := json.Marshal(map[string]interface{}{"ip": ip, "country": record.Country.IsoCode, "country_full": record.Country.Names["en"], "city": record.City.Names["en"], "region": sd, "continent": record.Continent.Code, "continent_full": record.Continent.Names["en"], "postal": record.Postal.Code, "loc": fmt.Sprintf("%.4f,%.4f", record.Location.Latitude, record.Location.Longitude)})
-	return string(output[:])
+	return string(output[:]), "application/json"
 }
 func HTTPRequestHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("[rq]", r.Method, r.URL.Path)
-	fmt.Fprint(w, IPToResponse(strings.Split(r.URL.Path, "/")[1]))
+	o, contentType := IPToResponse(strings.Split(r.URL.Path, "/")[1])
+	w.Header().Set("Content-Type", contentType + "; charset=utf-8")
+	fmt.Fprint(w, o)
 }
