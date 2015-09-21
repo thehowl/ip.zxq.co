@@ -20,7 +20,7 @@ func main() {
 		log.Fatal(err)
 	}
 	http.HandleFunc("/", HTTPRequestHandler)
-	fmt.Println("Server listening!")
+	log.Println("Server listening!")
 	http.ListenAndServe(":8080", nil)
 }
 func IPToResponse(i string, specific string) (string, string) {
@@ -48,7 +48,7 @@ func IPToResponse(i string, specific string) (string, string) {
 	}
 }
 func HTTPRequestHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("[rq]", r.Method, r.URL.Path)
+	log.Println("[rq]", r.Method, r.URL.Path)
 	requestedThings := strings.Split(r.URL.Path, "/")
 	var IPAddress string
 	var Which string
