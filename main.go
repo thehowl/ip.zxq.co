@@ -49,7 +49,7 @@ func HTTPRequestHandler(w http.ResponseWriter, r *http.Request) {
 	queryParams := SimplifyQueryMap(queryParamsRaw)
 	queryParams = AppendDefaultIfNotSet(queryParams, "callback", "#none#")
 	queryParams = AppendDefaultIfNotSet(queryParams, "pretty", "0")
-	o, contentType := IPToResponse(IPAddress, Which)
+	o, contentType := IPToResponse(IPAddress, Which, queryParams)
 	w.Header().Set("Content-Type", contentType+"; charset=utf-8")
 	fmt.Fprint(w, o)
 	log.Printf("[rq] %s %s %dns", r.Method, r.URL.Path, time.Since(start).Nanoseconds())
@@ -72,7 +72,7 @@ func SimplifyQueryMap(sl url.Values) map[string]string {
 	}
 	return ret
 }
-func IPToResponse(i string, specific string) (string, string) {
+func IPToResponse(i string, specific string, params map[string]string) (string, string) {
 	// Parse the ip.
 	ip := net.ParseIP(i)
 	if ip == nil {
@@ -88,7 +88,12 @@ func IPToResponse(i string, specific string) (string, string) {
 	}
 	data := map[string]string{"ip": ip.String(), "country": record.Country.IsoCode, "country_full": record.Country.Names["en"], "city": record.City.Names["en"], "region": sd, "continent": record.Continent.Code, "continent_full": record.Continent.Names["en"], "postal": record.Postal.Code, "loc": fmt.Sprintf("%.4f,%.4f", record.Location.Latitude, record.Location.Longitude)}
 	if specific == "" || specific == "json" || specific == "geo" {
-		bytes_output, _ := json.Marshal(data)
+		var bytes_output []byte
+		if params["pretty"] == "1" {
+			bytes_output, _ = json.MarshalIndent(data, "", "  ")
+		} else {
+			bytes_output, _ = json.Marshal(data)
+		}
 		return string(bytes_output[:]), "application/json"
 	} else if val, ok := data[specific]; ok {
 		return val, "text/html"
