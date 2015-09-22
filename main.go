@@ -35,6 +35,16 @@ func HTTPRequestHandler(w http.ResponseWriter, r *http.Request) {
 	// Get the current time, so that we can then calculate the execution time.
 	start := time.Now()
 
+	// Log how much time it took to respond to the request, when we're done.
+	defer log.Printf("[rq] %s %s %dns", r.Method, r.URL.Path,
+		time.Since(start).Nanoseconds())
+
+	// Index, redirect to git.zxq.co page.
+	if r.URL.Path == "/" {
+		http.Redirect(w, r, "http://git.zxq.co/Howl/ip.zxq.co/src/master/README.md", 301)
+		return
+	}
+
 	// Separate two strings when there is a / in the URL requested.
 	requestedThings := strings.Split(r.URL.Path, "/")
 
@@ -69,8 +79,6 @@ func HTTPRequestHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", contentType+"; charset=utf-8")
 	// Write the data out to the response.
 	fmt.Fprint(w, o)
-	// Log how much time it took to respond to the request.
-	log.Printf("[rq] %s %s %dns", r.Method, r.URL.Path, time.Since(start).Nanoseconds())
 }
 
 // Appends a default value to a map only if the key, defined as k, doesn't
