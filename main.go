@@ -149,7 +149,8 @@ func IPToResponse(i string, specific string, params map[string]string) (string, 
 		} else {
 			bytes_output, _ = json.Marshal(data)
 		}
-		return string(bytes_output[:]), "application/json"
+		return JSONPify(params["callback"], string(bytes_output[:])),
+			"application/json"
 	} else if val, ok := data[specific]; ok {
 		// If we got a specific value for what the user requested, return only
 		// that specific value.
@@ -158,4 +159,15 @@ func IPToResponse(i string, specific string, params map[string]string) (string, 
 		// We got nothing to show to the user.
 		return "undefined", "text/html"
 	}
+}
+func JSONPify(callback string, wrapData string) string {
+	// If you have a callback name longer than 2000 characters, I gotta say, you
+	// really should learn to minify your javascript code!
+	if callback != "#none#" && callback != "" && len(callback) < 2000 {
+		// In case you're wondering, yes, there is a reason for the empty
+		// comment! http://stackoverflow.com/a/16048976/5328069
+		wrapData = fmt.Sprintf("/**/ typeof %s === 'function' "+
+			"&& %s(%s);", callback, callback, wrapData)
+	}
+	return wrapData
 }
