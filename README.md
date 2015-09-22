@@ -32,6 +32,10 @@ Long version:
 * We get data only from one data source. Which means no lookups on other databases, which results in being faster overall.
 * We are open source. Which means you can compile and put it on your own server!
 
+## Data source
+
+This product includes GeoLite2 data created by MaxMind, available from http://www.maxmind.com.
+
 ## License
 
 MIT. Check LICENSE file.
