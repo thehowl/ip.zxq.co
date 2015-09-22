@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -68,8 +69,30 @@ func HTTPRequestHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		Which = requestedThings[2]
 	}
+	queryParamsRaw, _ := url.ParseQuery(r.URL.RawQuery)
+	queryParams := SimplifyQueryMap(queryParamsRaw)
+	queryParams = AppendDefaultIfNotSet(queryParams, "callback", "#none#")
+	queryParams = AppendDefaultIfNotSet(queryParams, "pretty", "0")
 	o, contentType := IPToResponse(IPAddress, Which)
 	w.Header().Set("Content-Type", contentType+"; charset=utf-8")
 	fmt.Fprint(w, o)
 	log.Printf("[rq] %s %s %dns", r.Method, r.URL.Path, time.Since(start).Nanoseconds())
+}
+func AppendDefaultIfNotSet(sl map[string]string, k string, dv string) map[string]string {
+	if _, ok := sl[k]; !ok {
+		sl[k] = dv
+	}
+	return sl
+}
+func SimplifyQueryMap(sl url.Values) map[string]string {
+	var ret map[string]string = map[string]string{}
+	for k, v := range sl {
+		// We're getting only the last element, because we take as granted that
+		// what the use actually means is the last element, if he has provided
+		// multiple values for the same key.
+		if len(v) > 0 {
+			ret[k] = v[len(v)-1]
+		}
+	}
+	return ret
 }
