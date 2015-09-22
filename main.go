@@ -160,6 +160,8 @@ func IPToResponse(i string, specific string, params map[string]string) (string, 
 		return "undefined", "text/html"
 	}
 }
+
+// Wraps wrapData into a JSONP callback, if the callback name is valid.
 func JSONPify(callback string, wrapData string) string {
 	// If you have a callback name longer than 2000 characters, I gotta say, you
 	// really should learn to minify your javascript code!
