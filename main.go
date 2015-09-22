@@ -25,30 +25,6 @@ func main() {
 	log.Println("Server listening!")
 	http.ListenAndServe(":8080", nil)
 }
-func IPToResponse(i string, specific string) (string, string) {
-	// Parse the ip.
-	ip := net.ParseIP(i)
-	if ip == nil {
-		return "Please provide a valid IP address", "text/html"
-	}
-	record, err := db.City(ip)
-	if err != nil {
-		log.Fatal(err)
-	}
-	var sd string
-	if record.Subdivisions != nil {
-		sd = record.Subdivisions[0].Names["en"]
-	}
-	data := map[string]string{"ip": ip.String(), "country": record.Country.IsoCode, "country_full": record.Country.Names["en"], "city": record.City.Names["en"], "region": sd, "continent": record.Continent.Code, "continent_full": record.Continent.Names["en"], "postal": record.Postal.Code, "loc": fmt.Sprintf("%.4f,%.4f", record.Location.Latitude, record.Location.Longitude)}
-	if specific == "" || specific == "json" || specific == "geo" {
-		bytes_output, _ := json.Marshal(data)
-		return string(bytes_output[:]), "application/json"
-	} else if val, ok := data[specific]; ok {
-		return val, "text/html"
-	} else {
-		return "undefined", "text/html"
-	}
-}
 func HTTPRequestHandler(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	requestedThings := strings.Split(r.URL.Path, "/")
@@ -95,4 +71,28 @@ func SimplifyQueryMap(sl url.Values) map[string]string {
 		}
 	}
 	return ret
+}
+func IPToResponse(i string, specific string) (string, string) {
+	// Parse the ip.
+	ip := net.ParseIP(i)
+	if ip == nil {
+		return "Please provide a valid IP address", "text/html"
+	}
+	record, err := db.City(ip)
+	if err != nil {
+		log.Fatal(err)
+	}
+	var sd string
+	if record.Subdivisions != nil {
+		sd = record.Subdivisions[0].Names["en"]
+	}
+	data := map[string]string{"ip": ip.String(), "country": record.Country.IsoCode, "country_full": record.Country.Names["en"], "city": record.City.Names["en"], "region": sd, "continent": record.Continent.Code, "continent_full": record.Continent.Names["en"], "postal": record.Postal.Code, "loc": fmt.Sprintf("%.4f,%.4f", record.Location.Latitude, record.Location.Longitude)}
+	if specific == "" || specific == "json" || specific == "geo" {
+		bytes_output, _ := json.Marshal(data)
+		return string(bytes_output[:]), "application/json"
+	} else if val, ok := data[specific]; ok {
+		return val, "text/html"
+	} else {
+		return "undefined", "text/html"
+	}
 }
