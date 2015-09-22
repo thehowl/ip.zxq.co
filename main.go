@@ -12,6 +12,8 @@ import (
 	"time"
 )
 
+// The GeoIP database containing data on what IP match to what city/country blah
+// blah.
 var db *geoip2.Reader
 
 func main() {
@@ -21,13 +23,21 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// Get the HTTP server rollin'
 	http.HandleFunc("/", HTTPRequestHandler)
 	log.Println("Server listening!")
 	http.ListenAndServe(":8080", nil)
 }
+
+// Standard request handler if there's no static file to be served.
 func HTTPRequestHandler(w http.ResponseWriter, r *http.Request) {
+	// Get the current time, so that we can then calculate the execution time.
 	start := time.Now()
+
+	// Separate two strings when there is a / in the URL requested.
 	requestedThings := strings.Split(r.URL.Path, "/")
+
 	var IPAddress string
 	var Which string
 	// How in the world the user would manage to even send a request to
@@ -45,21 +55,35 @@ func HTTPRequestHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		Which = requestedThings[2]
 	}
+
+	// Query parameters array making
 	queryParamsRaw, _ := url.ParseQuery(r.URL.RawQuery)
 	queryParams := SimplifyQueryMap(queryParamsRaw)
 	queryParams = AppendDefaultIfNotSet(queryParams, "callback", "#none#")
 	queryParams = AppendDefaultIfNotSet(queryParams, "pretty", "0")
+
+	// Get the geodata of the requested IP.
 	o, contentType := IPToResponse(IPAddress, Which, queryParams)
+
+	// Set the content type as the one given by IPToResponse.
 	w.Header().Set("Content-Type", contentType+"; charset=utf-8")
+	// Write the data out to the response.
 	fmt.Fprint(w, o)
+	// Log how much time it took to respond to the request.
 	log.Printf("[rq] %s %s %dns", r.Method, r.URL.Path, time.Since(start).Nanoseconds())
 }
+
+// Appends a default value to a map only if the key, defined as k, doesn't
+// already exist in the array.
 func AppendDefaultIfNotSet(sl map[string]string, k string, dv string) map[string]string {
 	if _, ok := sl[k]; !ok {
 		sl[k] = dv
 	}
 	return sl
 }
+
+// url.ParseQuery returns a map containing as a value a slice with often just
+// one value. We're fixing that.
 func SimplifyQueryMap(sl url.Values) map[string]string {
 	var ret map[string]string = map[string]string{}
 	for k, v := range sl {
@@ -72,22 +96,38 @@ func SimplifyQueryMap(sl url.Values) map[string]string {
 	}
 	return ret
 }
+
+// Turn the IP into a JSON string containing geodata.
+//
+// * i: the raw IP string.
+// * specific: the specific value to get from the geodata array. Default is ""
+// * params: Set callback in the map to a non-"#none#" value to use it as a
+//   JSONP callback. Set "pretty" to 1 if you want a 2-space indented JSON
+//   output.
 func IPToResponse(i string, specific string, params map[string]string) (string, string) {
-	// Parse the ip.
 	ip := net.ParseIP(i)
 	if ip == nil {
 		return "Please provide a valid IP address", "text/html"
 	}
+
+	// Query the maxmind database for that IP address.
 	record, err := db.City(ip)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// String containing the region/subdivision of the IP. (E.g.: Scotland, or
+	// California).
 	var sd string
+	// If there are subdivisions for this IP, set sd as the first element in the
+	// array's name.
 	if record.Subdivisions != nil {
 		sd = record.Subdivisions[0].Names["en"]
 	}
 
+	// Create a new instance of all the data to be returned to the user.
 	data := map[string]string{}
+	// Fill up the data array with the geoip data.
 	data["ip"] = ip.String()
 	data["country"] = record.Country.IsoCode
 	data["country_full"] = record.Country.Names["en"]
@@ -96,8 +136,12 @@ func IPToResponse(i string, specific string, params map[string]string) (string, 
 	data["continent"] = record.Continent.Code
 	data["continent_full"] = record.Continent.Names["en"]
 	data["postal"] = record.Postal.Code
+	// precision of latitude/longitude is up to 4 decimal places (even on
+	// ipinfo.io).
 	data["loc"] = fmt.Sprintf("%.4f,%.4f", record.Location.Latitude, record.Location.Longitude)
 
+	// Since we don't have HTML output, nor other data from geo data,
+	// everything is the same if you do /8.8.8.8, /8.8.8.8/json or /8.8.8.8/geo.
 	if specific == "" || specific == "json" || specific == "geo" {
 		var bytes_output []byte
 		if params["pretty"] == "1" {
@@ -107,8 +151,11 @@ func IPToResponse(i string, specific string, params map[string]string) (string, 
 		}
 		return string(bytes_output[:]), "application/json"
 	} else if val, ok := data[specific]; ok {
+		// If we got a specific value for what the user requested, return only
+		// that specific value.
 		return val, "text/html"
 	} else {
+		// We got nothing to show to the user.
 		return "undefined", "text/html"
 	}
 }
