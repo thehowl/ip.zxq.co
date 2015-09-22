@@ -86,7 +86,18 @@ func IPToResponse(i string, specific string, params map[string]string) (string, 
 	if record.Subdivisions != nil {
 		sd = record.Subdivisions[0].Names["en"]
 	}
-	data := map[string]string{"ip": ip.String(), "country": record.Country.IsoCode, "country_full": record.Country.Names["en"], "city": record.City.Names["en"], "region": sd, "continent": record.Continent.Code, "continent_full": record.Continent.Names["en"], "postal": record.Postal.Code, "loc": fmt.Sprintf("%.4f,%.4f", record.Location.Latitude, record.Location.Longitude)}
+
+	data := map[string]string{}
+	data["ip"] = ip.String()
+	data["country"] = record.Country.IsoCode
+	data["country_full"] = record.Country.Names["en"]
+	data["city"] = record.City.Names["en"]
+	data["region"] = sd
+	data["continent"] = record.Continent.Code
+	data["continent_full"] = record.Continent.Names["en"]
+	data["postal"] = record.Postal.Code
+	data["loc"] = fmt.Sprintf("%.4f,%.4f", record.Location.Latitude, record.Location.Longitude)
+
 	if specific == "" || specific == "json" || specific == "geo" {
 		var bytes_output []byte
 		if params["pretty"] == "1" {
