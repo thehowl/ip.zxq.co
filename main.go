@@ -41,7 +41,7 @@ func HTTPRequestHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Index, redirect to github.com page.
 	if r.URL.Path == "/" {
-		http.Redirect(w, r, "http://github.com/TheHowl/ip.zxq.co/src/master/README.md", 301)
+		http.Redirect(w, r, "https://github.com/TheHowl/ip.zxq.co/blob/master/README.md", 301)
 		return
 	}
 
