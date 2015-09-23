@@ -39,9 +39,9 @@ func HTTPRequestHandler(w http.ResponseWriter, r *http.Request) {
 	defer log.Printf("[rq] %s %s %dns", r.Method, r.URL.Path,
 		time.Since(start).Nanoseconds())
 
-	// Index, redirect to git.zxq.co page.
+	// Index, redirect to github.com page.
 	if r.URL.Path == "/" {
-		http.Redirect(w, r, "http://git.zxq.co/Howl/ip.zxq.co/src/master/README.md", 301)
+		http.Redirect(w, r, "http://github.com/TheHowl/ip.zxq.co/src/master/README.md", 301)
 		return
 	}
 
