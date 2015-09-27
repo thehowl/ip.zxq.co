@@ -35,8 +35,14 @@ func HTTPRequestHandler(w http.ResponseWriter, r *http.Request) {
 	// Get the current time, so that we can then calculate the execution time.
 	start := time.Now()
 
+	requestIP := strings.Split(r.RemoteAddr, ":")
+
 	// Log how much time it took to respond to the request, when we're done.
-	defer log.Printf("[rq] %s %s %dns", r.Method, r.URL.Path,
+	defer log.Printf(
+		"[rq] %s %s %s %dns",
+		strings.Join(requestIP[:len(requestIP)-1], ":"),
+		r.Method,
+		r.URL.Path,
 		time.Since(start).Nanoseconds())
 
 	// Index, redirect to github.com page.
