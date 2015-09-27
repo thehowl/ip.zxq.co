@@ -35,8 +35,14 @@ func HTTPRequestHandler(w http.ResponseWriter, r *http.Request) {
 	// Get the current time, so that we can then calculate the execution time.
 	start := time.Now()
 
-	// Get the real actual request IP without the trolls
-	requestIP := UnfuckRequestIP(r.RemoteAddr)
+	var requestIP string
+	// The request is most likely being done through a reverse proxy.
+	if realIP, ok := r.Header["X-Real-IP"]; ok && len(r.Header["X-Real-IP"]) > 0 {
+		requestIP = realIP[0]
+	} else {
+		// Get the real actual request IP without the trolls
+		requestIP = UnfuckRequestIP(r.RemoteAddr)
+	}
 
 	// Log how much time it took to respond to the request, when we're done.
 	defer log.Printf(
