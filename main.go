@@ -44,6 +44,13 @@ func HTTPRequestHandler(w http.ResponseWriter, r *http.Request) {
 		requestIP = UnfuckRequestIP(r.RemoteAddr)
 	}
 
+	// There's a very good reason for which we aren't using regexes.
+	// http://ideone.com/jNEMob
+	// (tl;dr: regex is holy shit fucking slow)
+	isConnectingFromBrowser := strings.Index(r.UserAgent(), "mozilla") != -1 ||
+		strings.Index(r.UserAgent(), "webkit") != -1 ||
+		strings.Index(r.UserAgent(), "opera") != -1
+
 	// Log how much time it took to respond to the request, when we're done.
 	defer log.Printf(
 		"[rq] %s %s %s %dns",
@@ -53,7 +60,7 @@ func HTTPRequestHandler(w http.ResponseWriter, r *http.Request) {
 		time.Since(start).Nanoseconds())
 
 	// Index, redirect to github.com page.
-	if r.URL.Path == "/" {
+	if r.URL.Path == "/" && isConnectingFromBrowser {
 		http.Redirect(w, r, "https://github.com/TheHowl/ip.zxq.co/blob/master/README.md", 301)
 		return
 	}
@@ -77,6 +84,11 @@ func HTTPRequestHandler(w http.ResponseWriter, r *http.Request) {
 		Which = ""
 	} else {
 		Which = requestedThings[2]
+	}
+
+	// Set the requested IP to the user's request request IP, if we got no address.
+	if IPAddress == "" {
+		IPAddress = requestIP
 	}
 
 	// Query parameters array making
