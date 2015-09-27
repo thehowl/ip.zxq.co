@@ -37,7 +37,7 @@ func HTTPRequestHandler(w http.ResponseWriter, r *http.Request) {
 
 	var requestIP string
 	// The request is most likely being done through a reverse proxy.
-	if realIP, ok := r.Header["X-Real-IP"]; ok && len(r.Header["X-Real-Ip"]) > 0 {
+	if realIP, ok := r.Header["X-Real-Ip"]; ok && len(r.Header["X-Real-Ip"]) > 0 {
 		requestIP = realIP[0]
 	} else {
 		// Get the real actual request IP without the trolls
