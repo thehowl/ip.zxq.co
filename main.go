@@ -35,12 +35,13 @@ func HTTPRequestHandler(w http.ResponseWriter, r *http.Request) {
 	// Get the current time, so that we can then calculate the execution time.
 	start := time.Now()
 
-	requestIP := strings.Split(r.RemoteAddr, ":")
+	// Get the real actual request IP without the trolls
+	requestIP := UnfuckRequestIP(r.RemoteAddr)
 
 	// Log how much time it took to respond to the request, when we're done.
 	defer log.Printf(
 		"[rq] %s %s %s %dns",
-		strings.Join(requestIP[:len(requestIP)-1], ":"),
+		requestIP,
 		r.Method,
 		r.URL.Path,
 		time.Since(start).Nanoseconds())
@@ -109,6 +110,15 @@ func SimplifyQueryMap(sl url.Values) map[string]string {
 		}
 	}
 	return ret
+}
+
+// Remove from the IP eventual [ or ], and remove the port part of the IP.
+func UnfuckRequestIP(ip string) string {
+	ip = strings.Replace(ip, "[", "", 1)
+	ip = strings.Replace(ip, "]", "", 1)
+	ss := strings.Split(ip, ":")
+	ip = strings.Join(ss[:len(ss)-1], ":")
+	return ip
 }
 
 // Turn the IP into a JSON string containing geodata.
