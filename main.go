@@ -87,7 +87,7 @@ func HTTPRequestHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Set the requested IP to the user's request request IP, if we got no address.
-	if IPAddress == "" {
+	if IPAddress == "" || IPAddress == "self" {
 		IPAddress = requestIP
 	}
 
