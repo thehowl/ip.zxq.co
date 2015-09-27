@@ -15,10 +15,15 @@ $ curl ip.zxq.co/8.8.8.8
 {"city":"Mountain View","continent":"NA","continent_full":"North America","country":"US","country_full":"United States","ip":"8.8.8.8","loc":"37.3860,-122.0838","postal":"94040","region":"California"}
 ```
 
+```
+$ curl ip.zxq.co/8.8.8.8/country
+US
+```
+
 That is a bit ugly, though. Especially for testing purposes. Let's make it pretty, shall we?
 
 ```
-$ curl "localhost:8080/8.8.8.8?pretty=1"
+$ curl "ip.zxq.co/8.8.8.8?pretty=1"
 {
   "city": "Mountain View",
   "continent": "NA",
@@ -34,10 +39,29 @@ $ curl "localhost:8080/8.8.8.8?pretty=1"
 
 Much better! :smile:
 
+But what if we don't know the user's IP? In that case, then, we can call `/self`.
+
+```
+$ curl "ip.zxq.co/self?pretty=1"
+{
+  "city": "",
+  "continent": "EU",
+  "continent_full": "Europe",
+  "country": "IT",
+  "country_full": "Italy",
+  "ip": "87.16.45.15",
+  "loc": "42.8333,12.8333",
+  "postal": "",
+  "region": ""
+}
+```
+
+Using /self works just like any normal request with an IP, which means you can still get a specific field. By default if you do not specify any IP it will assume it's /self, although it's recommended to always specify it, as if for any reason you have "webkit", "opera" or "mozilla" in your user agent, it will assume you're accessing from a browser and redirect you to this README.
+
 We're aren't done just yet! You want to use JSONP. You guess it, we are using the same system as ipinfo.io's. Just provide a `callback` parameter to your GET request.
 
 ```
-$ curl "localhost:8080/8.8.8.8?pretty=1&callback=myFancyFunction"
+$ curl "ip.zxq.co/8.8.8.8?pretty=1&callback=myFancyFunction"
 /**/ typeof myFancyFunction === 'function' && myFancyFunction({
   "city": "Mountain View",
   "continent": "NA",
