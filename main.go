@@ -3,13 +3,17 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/oschwald/geoip2-golang"
 	"log"
 	"net"
 	"net/http"
-	"net/url"
+	"os"
+	"os/signal"
+	"regexp"
 	"strings"
+	"syscall"
 	"time"
+
+	"github.com/oschwald/geoip2-golang"
 )
 
 // The GeoIP database containing data on what IP match to what city/country blah
@@ -25,129 +29,89 @@ func main() {
 	}
 
 	// Get the HTTP server rollin'
-	http.HandleFunc("/", HTTPRequestHandler)
 	log.Println("Server listening!")
-	http.ListenAndServe(":61430", nil)
+	ln, err := net.Listen("unix", "/tmp/ip.zxq.co.sock")
+	if err != nil {
+		log.Fatal(err)
+	}
+	os.Chmod("/tmp/ip.zxq.co.sock", 0777)
+	var stop = make(chan os.Signal)
+	signal.Notify(stop, syscall.SIGTERM)
+	signal.Notify(stop, syscall.SIGINT)
+	go func() {
+		<-stop
+		ln.Close()
+		os.Exit(0)
+	}()
+	http.Serve(ln, http.HandlerFunc(handler))
 }
 
-// Standard request handler if there's no static file to be served.
-func HTTPRequestHandler(w http.ResponseWriter, r *http.Request) {
+var invalidIPBytes = []byte("Please provide a valid IP address.")
+
+type dataStruct struct {
+	IP            string `json:"ip"`
+	City          string `json:"city"`
+	Region        string `json:"region"`
+	Country       string `json:"country"`
+	CountryFull   string `json:"country_full"`
+	Continent     string `json:"continent"`
+	ContinentFull string `json:"continent_full"`
+	Loc           string `json:"loc"`
+	Postal        string `json:"postal"`
+}
+
+var nameToField = map[string]func(dataStruct) string{
+	"ip":             func(d dataStruct) string { return d.IP },
+	"city":           func(d dataStruct) string { return d.City },
+	"region":         func(d dataStruct) string { return d.Region },
+	"country":        func(d dataStruct) string { return d.Country },
+	"country_full":   func(d dataStruct) string { return d.CountryFull },
+	"continent":      func(d dataStruct) string { return d.Continent },
+	"continent_full": func(d dataStruct) string { return d.ContinentFull },
+	"loc":            func(d dataStruct) string { return d.Loc },
+	"postal":         func(d dataStruct) string { return d.Postal },
+}
+
+func handler(w http.ResponseWriter, r *http.Request) {
 	// Get the current time, so that we can then calculate the execution time.
 	start := time.Now()
 
-	var requestIP string
-	// The request is most likely being done through a reverse proxy.
-	if realIP, ok := r.Header["X-Real-Ip"]; ok && len(r.Header["X-Real-Ip"]) > 0 {
-		requestIP = realIP[0]
-	} else {
-		// Get the real actual request IP without the trolls
-		requestIP = UnfuckRequestIP(r.RemoteAddr)
-	}
-
 	// Log how much time it took to respond to the request, when we're done.
 	defer log.Printf(
-		"[rq] %s %s %s %dns",
-		requestIP,
+		"[rq] %s %s %dns",
 		r.Method,
 		r.URL.Path,
 		time.Since(start).Nanoseconds())
-
-	// Index, redirect to github.com page if the request is sent from a browser.
-	// There's a very good reason for which we aren't using regexes.
-	// http://ideone.com/jNEMob
-	// (tl;dr: regex is holy shit fucking slow)
-	if r.URL.Path == "/" && (strings.Index(r.UserAgent(), "mozilla") != -1 ||
-		strings.Index(r.UserAgent(), "webkit") != -1 ||
-		strings.Index(r.UserAgent(), "opera") != -1) {
-		http.Redirect(w, r, "https://github.com/TheHowl/ip.zxq.co/blob/master/README.md", 301)
-		return
-	}
 
 	// Separate two strings when there is a / in the URL requested.
 	requestedThings := strings.Split(r.URL.Path, "/")
 
 	var IPAddress string
 	var Which string
-	// How in the world the user would manage to even send a request to
-	// something without even having Path = "/"?
-	// I... have no idea. But I'm paranoid. So let's just do it anyway.
-	if len(requestedThings) < 2 {
-		IPAddress = ""
-	} else {
-		IPAddress = requestedThings[1]
-	}
-	// In case the user didn't write a specific index, let's specify it for
-	// them.
-	if len(requestedThings) < 3 {
-		Which = ""
-	} else {
+	switch len(requestedThings) {
+	case 3:
 		Which = requestedThings[2]
+		fallthrough
+	case 2:
+		IPAddress = requestedThings[1]
 	}
 
 	// Set the requested IP to the user's request request IP, if we got no address.
 	if IPAddress == "" || IPAddress == "self" {
-		IPAddress = requestIP
-	}
-
-	// Query parameters array making
-	queryParamsRaw, _ := url.ParseQuery(r.URL.RawQuery)
-	queryParams := SimplifyQueryMap(queryParamsRaw)
-	queryParams = AppendDefaultIfNotSet(queryParams, "callback", "#none#")
-	queryParams = AppendDefaultIfNotSet(queryParams, "pretty", "0")
-
-	// Get the geodata of the requested IP.
-	o, contentType := IPToResponse(IPAddress, Which, queryParams)
-
-	// Set the content type as the one given by IPToResponse.
-	w.Header().Set("Content-Type", contentType+"; charset=utf-8")
-	// Write the data out to the response.
-	fmt.Fprint(w, o)
-}
-
-// Appends a default value to a map only if the key, defined as k, doesn't
-// already exist in the array.
-func AppendDefaultIfNotSet(sl map[string]string, k string, dv string) map[string]string {
-	if _, ok := sl[k]; !ok {
-		sl[k] = dv
-	}
-	return sl
-}
-
-// url.ParseQuery returns a map containing as a value a slice with often just
-// one value. We're fixing that.
-func SimplifyQueryMap(sl url.Values) map[string]string {
-	var ret map[string]string = map[string]string{}
-	for k, v := range sl {
-		// We're getting only the last element, because we take as granted that
-		// what the use actually means is the last element, if he has provided
-		// multiple values for the same key.
-		if len(v) > 0 {
-			ret[k] = v[len(v)-1]
+		// The request is most likely being done through a reverse proxy.
+		if realIP, ok := r.Header["X-Real-Ip"]; ok && len(r.Header["X-Real-Ip"]) > 0 {
+			IPAddress = realIP[0]
+		} else {
+			// Get the real actual request IP without the trolls
+			IPAddress = UnfuckRequestIP(r.RemoteAddr)
 		}
 	}
-	return ret
-}
 
-// Remove from the IP eventual [ or ], and remove the port part of the IP.
-func UnfuckRequestIP(ip string) string {
-	ip = strings.Replace(ip, "[", "", 1)
-	ip = strings.Replace(ip, "]", "", 1)
-	ss := strings.Split(ip, ":")
-	ip = strings.Join(ss[:len(ss)-1], ":")
-	return ip
-}
-
-// Turn the IP into a JSON string containing geodata.
-//
-// * i: the raw IP string.
-// * specific: the specific value to get from the geodata array. Default is ""
-// * params: Set callback in the map to a non-"#none#" value to use it as a
-//   JSONP callback. Set "pretty" to 1 if you want a 2-space indented JSON
-//   output.
-func IPToResponse(i string, specific string, params map[string]string) (string, string) {
-	ip := net.ParseIP(i)
+	ip := net.ParseIP(IPAddress)
 	if ip == nil {
-		return "Please provide a valid IP address", "text/html"
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Write(invalidIPBytes)
+		return
 	}
 
 	// Query the maxmind database for that IP address.
@@ -165,51 +129,58 @@ func IPToResponse(i string, specific string, params map[string]string) (string, 
 		sd = record.Subdivisions[0].Names["en"]
 	}
 
-	// Create a new instance of all the data to be returned to the user.
-	data := map[string]string{}
 	// Fill up the data array with the geoip data.
-	data["ip"] = ip.String()
-	data["country"] = record.Country.IsoCode
-	data["country_full"] = record.Country.Names["en"]
-	data["city"] = record.City.Names["en"]
-	data["region"] = sd
-	data["continent"] = record.Continent.Code
-	data["continent_full"] = record.Continent.Names["en"]
-	data["postal"] = record.Postal.Code
-	// precision of latitude/longitude is up to 4 decimal places (even on
-	// ipinfo.io).
-	data["loc"] = fmt.Sprintf("%.4f,%.4f", record.Location.Latitude, record.Location.Longitude)
+	d := dataStruct{
+		IP:            ip.String(),
+		Country:       record.Country.IsoCode,
+		CountryFull:   record.Country.Names["en"],
+		City:          record.City.Names["en"],
+		Region:        sd,
+		Continent:     record.Continent.Code,
+		ContinentFull: record.Continent.Names["en"],
+		Postal:        record.Postal.Code,
+		Loc:           fmt.Sprintf("%.4f,%.4f", record.Location.Latitude, record.Location.Longitude),
+	}
 
 	// Since we don't have HTML output, nor other data from geo data,
 	// everything is the same if you do /8.8.8.8, /8.8.8.8/json or /8.8.8.8/geo.
-	if specific == "" || specific == "json" || specific == "geo" {
-		var bytes_output []byte
-		if params["pretty"] == "1" {
-			bytes_output, _ = json.MarshalIndent(data, "", "  ")
-		} else {
-			bytes_output, _ = json.Marshal(data)
+	if Which == "" || Which == "json" || Which == "geo" {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		callback := r.URL.Query().Get("callback")
+		enableJSONP := callback != "" && len(callback) < 2000 && callbackJSONP.MatchString(callback)
+		if enableJSONP {
+			_, err = w.Write([]byte("/**/ typeof " + callback + " === 'function' " +
+				"&& " + callback + "("))
+			if err != nil {
+				return
+			}
 		}
-		return JSONPify(params["callback"], string(bytes_output[:])),
-			"application/json"
-	} else if val, ok := data[specific]; ok {
-		// If we got a specific value for what the user requested, return only
-		// that specific value.
-		return val, "text/html"
+		enc := json.NewEncoder(w)
+		if r.URL.Query().Get("pretty") == "1" {
+			enc.SetIndent("", "  ")
+		}
+		enc.Encode(d)
+		if enableJSONP {
+			w.Write([]byte(");"))
+		}
 	} else {
-		// We got nothing to show to the user.
-		return "undefined", "text/html"
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		if val := nameToField[Which]; val != nil {
+			w.Write([]byte(val(d)))
+		} else {
+			w.Write([]byte("undefined"))
+		}
 	}
 }
 
-// Wraps wrapData into a JSONP callback, if the callback name is valid.
-func JSONPify(callback string, wrapData string) string {
-	// If you have a callback name longer than 2000 characters, I gotta say, you
-	// really should learn to minify your javascript code!
-	if callback != "#none#" && callback != "" && len(callback) < 2000 {
-		// In case you're wondering, yes, there is a reason for the empty
-		// comment! http://stackoverflow.com/a/16048976/5328069
-		wrapData = fmt.Sprintf("/**/ typeof %s === 'function' "+
-			"&& %s(%s);", callback, callback, wrapData)
-	}
-	return wrapData
+// Very restrictive, but this way it shouldn't completely fuck up.
+var callbackJSONP = regexp.MustCompile(`^[a-zA-Z_\$][a-zA-Z0-9_\$]*$`)
+
+// Remove from the IP eventual [ or ], and remove the port part of the IP.
+func UnfuckRequestIP(ip string) string {
+	ip = strings.Replace(ip, "[", "", 1)
+	ip = strings.Replace(ip, "]", "", 1)
+	ss := strings.Split(ip, ":")
+	ip = strings.Join(ss[:len(ss)-1], ":")
+	return ip
 }
