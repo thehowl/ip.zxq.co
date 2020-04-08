@@ -25,6 +25,7 @@ func main() {
 	var err error
 	db, err = geoip2.Open("GeoLite2-City.mmdb")
 	if err != nil {
+		log.Println("please download a GeoLite2 City database: https://db-ip.com/db/download/ip-to-city-lite")
 		log.Fatal(err)
 	}
 
