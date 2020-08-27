@@ -6,11 +6,8 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"os"
-	"os/signal"
 	"regexp"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/oschwald/geoip2-golang"
@@ -31,20 +28,7 @@ func main() {
 
 	// Get the HTTP server rollin'
 	log.Println("Server listening!")
-	ln, err := net.Listen("unix", "/tmp/ip.zxq.co.sock")
-	if err != nil {
-		log.Fatal(err)
-	}
-	os.Chmod("/tmp/ip.zxq.co.sock", 0777)
-	var stop = make(chan os.Signal)
-	signal.Notify(stop, syscall.SIGTERM)
-	signal.Notify(stop, syscall.SIGINT)
-	go func() {
-		<-stop
-		ln.Close()
-		os.Exit(0)
-	}()
-	http.Serve(ln, http.HandlerFunc(handler))
+	http.ListenAndServe(":80", http.HandlerFunc(handler))
 }
 
 var invalidIPBytes = []byte("Please provide a valid IP address.")
