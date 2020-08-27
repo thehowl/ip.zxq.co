@@ -1,13 +1,11 @@
 # build application
-FROM golang:1.11-alpine AS build
-ARG BUILDPATH=github.com/thehowl/ip.zxq.co
+FROM golang:1.15-alpine AS build
 
-COPY * /go/src/${BUILDPATH}/
+COPY * /root/
 
-RUN apk -U add git && \
-    cd /go/src/${BUILDPATH}/ && \
+RUN cd /root/ && \
     go get -v && \
-    go build -o /dist/main
+    CGO_ENABLED=0 go build -o /dist/main
 
 # create a new image
 FROM alpine:latest

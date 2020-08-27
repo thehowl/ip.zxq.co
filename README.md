@@ -106,11 +106,17 @@ var myFancyFunction = function(data) {
 Feel free to open an issue or pull request for anything! If you want to run it locally for whatever reason, you can do so this way if you don't need to touch the code:
 
 ```sh
-go get -d http://github.com/TheHowl/ip.zxq.co
-cd $GOPATH/src/github.com/TheHowl/ip.zxq.co
+go get -d http://github.com/thehowl/ip.zxq.co
+cd $GOPATH/src/github.com/thehowl/ip.zxq.co
 go build
 ./ip.zxq.co # .exe if you're on windows
 ```
+
+**After installing, you need to place a GeoLite database in the same folder.**
+The original GeoLite databases are now hard to access and require registration, but a good (free) alternative is available here:
+https://db-ip.com/db/download/ip-to-city-lite
+
+The file must be named `GeoLite2-City.mmdb`.
 
 (the reason you can't just do `go get` and then execute it from the terminal is that the software requires `GeoLite2-City.mmdb` to be in the same folder)
 
@@ -118,19 +124,15 @@ If you want to hack in the future, this is a better way:
 
 ```sh
 cd $GOPATH
-mkdir -p src/github.com/TheHowl
-cd src/github.com/TheHowl
-git clone git@github.com:TheHowl/ip.zxq.co.git
+mkdir -p src/github.com/thehowl
+cd src/github.com/thehowl
+git clone git@github.com:thehowl/ip.zxq.co.git
 cd ip.zxq.co
 go build
 ./ip.zxq.co
 # Or if you don't want to create the binary in the folder
 go run main.go
 ```
-
-## Data source
-
-This product includes GeoLite2 data created by MaxMind, available from http://www.maxmind.com.
 
 ## License
 
