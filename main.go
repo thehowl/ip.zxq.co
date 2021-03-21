@@ -150,10 +150,10 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	// Log how much time it took to respond to the request, when we're done.
 	defer func() {
 		log.Printf(
-			"[rq] %s %s %dns",
+			"[rq] %s %s %s",
 			r.Method,
 			r.URL.Path,
-			time.Since(start).Nanoseconds())
+			time.Since(start).String())
 	}()
 
 	// Separate two strings when there is a / in the URL requested.
