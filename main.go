@@ -1,13 +1,17 @@
 package main
 
 import (
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/oschwald/geoip2-golang"
@@ -16,15 +20,97 @@ import (
 // The GeoIP database containing data on what IP match to what city/country blah
 // blah.
 var db *geoip2.Reader
+var currFilename = time.Now().Format("2006-01") + ".mmdb"
+var dbMtx = new(sync.RWMutex)
+
+const dbURL = "https://download.db-ip.com/free/dbip-city-lite-%s.mmdb.gz"
+
+func doUpdate() {
+	fmt.Fprintln(os.Stderr, "Fetching updates...")
+	currMonth := time.Now().Format("2006-01")
+	if currFilename == currMonth+".mmdb" {
+		fmt.Fprintln(os.Stderr, "Version is latest, not fetching")
+		return
+	}
+	resp, err := http.Get(fmt.Sprintf(dbURL, currMonth))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "An error occurred while attempting to fetch the updated DB: %v\n", err)
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		fmt.Fprintf(os.Stderr, "Status code is not 200 for new database (%d), probably need to wait...\n", resp.StatusCode)
+		return
+	}
+	// status code is 200, download file
+	dst, err := os.Create(currMonth + ".mmdb")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating file: %v\n", err)
+		return
+	}
+	failed := true
+	defer func() {
+		dst.Close()
+		if failed {
+			os.Remove(dst.Name())
+		}
+	}()
+	r, err := gzip.NewReader(resp.Body)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating gzip decoder: %v\n", err)
+		return
+	}
+
+	fmt.Fprintln(os.Stderr, "Copying new database...")
+	_, err = io.Copy(dst, r)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error copying file: %v\n", err)
+		return
+	}
+	newDB, err := geoip2.Open(currMonth + ".mmdb")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error opening new db: %v\n", err)
+		return
+	}
+
+	// actual update
+	old := currFilename
+	dbMtx.Lock()
+	currFilename = currMonth + ".mmdb"
+	if db != nil {
+		db.Close()
+	}
+	db = newDB
+	dbMtx.Unlock()
+	if err := os.Remove(old); err != nil && !os.IsNotExist(err) {
+		fmt.Fprintf(os.Stderr, "error removing old file: %v\n", err)
+	}
+
+	fmt.Fprintf(os.Stderr, "GeoIP database updated to %s\n", currMonth)
+}
+
+func updater() {
+	for range time.Tick(time.Hour * 24 * 7) {
+		doUpdate()
+	}
+}
 
 func main() {
 	// Initialize the database.
 	var err error
-	db, err = geoip2.Open("GeoLite2-City.mmdb")
+	db, err = geoip2.Open(currFilename)
 	if err != nil {
-		log.Println("please download a GeoLite2 City database: https://db-ip.com/db/download/ip-to-city-lite")
-		log.Fatal(err)
+		if os.IsNotExist(err) {
+			currFilename = ""
+			doUpdate()
+			if db == nil {
+				os.Exit(1)
+			}
+		} else {
+			log.Fatal(err)
+		}
 	}
+	go updater()
 
 	// Get the HTTP server rollin'
 	log.Println("Server listening!")
@@ -62,11 +148,13 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
 	// Log how much time it took to respond to the request, when we're done.
-	defer log.Printf(
-		"[rq] %s %s %dns",
-		r.Method,
-		r.URL.Path,
-		time.Since(start).Nanoseconds())
+	defer func() {
+		log.Printf(
+			"[rq] %s %s %dns",
+			r.Method,
+			r.URL.Path,
+			time.Since(start).Nanoseconds())
+	}()
 
 	// Separate two strings when there is a / in the URL requested.
 	requestedThings := strings.Split(r.URL.Path, "/")
@@ -100,7 +188,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Query the maxmind database for that IP address.
+	dbMtx.RLock()
 	record, err := db.City(ip)
+	dbMtx.RUnlock()
 	if err != nil {
 		log.Fatal(err)
 	}
