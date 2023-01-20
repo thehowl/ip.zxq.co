@@ -20,7 +20,7 @@ import (
 // The GeoIP database containing data on what IP match to what city/country blah
 // blah.
 var db *geoip2.Reader
-var currFilename = time.Now().Format("2006-01") + ".mmdb"
+var currFilename = "data/" + time.Now().Format("2006-01") + ".mmdb"
 var dbMtx = new(sync.RWMutex)
 
 const dbURL = "https://download.db-ip.com/free/dbip-city-lite-%s.mmdb.gz"
@@ -28,7 +28,7 @@ const dbURL = "https://download.db-ip.com/free/dbip-city-lite-%s.mmdb.gz"
 func doUpdate() {
 	fmt.Fprintln(os.Stderr, "Fetching updates...")
 	currMonth := time.Now().Format("2006-01")
-	if currFilename == currMonth+".mmdb" {
+	if currFilename == "data/"+currMonth+".mmdb" {
 		fmt.Fprintln(os.Stderr, "Version is latest, not fetching")
 		return
 	}
@@ -43,7 +43,7 @@ func doUpdate() {
 		return
 	}
 	// status code is 200, download file
-	dst, err := os.Create(currMonth + ".mmdb")
+	dst, err := os.Create("data/" + currMonth + ".mmdb")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating file: %v\n", err)
 		return
@@ -67,7 +67,7 @@ func doUpdate() {
 		fmt.Fprintf(os.Stderr, "error copying file: %v\n", err)
 		return
 	}
-	newDB, err := geoip2.Open(currMonth + ".mmdb")
+	newDB, err := geoip2.Open("data/" + currMonth + ".mmdb")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error opening new db: %v\n", err)
 		return
@@ -76,7 +76,7 @@ func doUpdate() {
 	// actual update
 	old := currFilename
 	dbMtx.Lock()
-	currFilename = currMonth + ".mmdb"
+	currFilename = "data/" + currMonth + ".mmdb"
 	if db != nil {
 		db.Close()
 	}
@@ -86,6 +86,7 @@ func doUpdate() {
 		fmt.Fprintf(os.Stderr, "error removing old file: %v\n", err)
 	}
 
+	failed = false
 	fmt.Fprintf(os.Stderr, "GeoIP database updated to %s\n", currMonth)
 }
 
