@@ -98,5 +98,5 @@ Quoting from the page:
 >You may do it by pasting the HTML code snippet below into your code:
 >
 >```
-<a href='https://db-ip.com'>IP Geolocation by DB-IP</a>
-```
+><a href='https://db-ip.com'>IP Geolocation by DB-IP</a>
+>```
