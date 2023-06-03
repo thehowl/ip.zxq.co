@@ -75,7 +75,7 @@ paid service :)
 ## Deployment and development
 
 For your convenience, a docker-compose file is available, as well as a images on
-docker hub: https://hub.docker.com/repository/docker/howl/ipzxqco/general .
+docker hub: <https://hub.docker.com/r/howl/ipzxqco>.
 
 `docker compose up` with the docker-compose file will set up ip.zxq.co on your
 machine, listening on port 8123, with attempts to update every week.
